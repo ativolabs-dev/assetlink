@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.28;
 
 // Importing the ERC20 interface
 interface IERC20 {
@@ -18,7 +18,7 @@ interface IERC20 {
  * @title SKL Staking Contract
  * @dev This contract allows SKL holders to stake their tokens and earn ASET rewards at an APR of 30%.
  */
-contract SKLStaking {
+contract SKLtoASET {
     // Address of the SKL token contract
     IERC20 public sklToken;
 
