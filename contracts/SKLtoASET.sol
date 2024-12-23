@@ -1,28 +1,18 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.0;
 
-// Importing the ERC20 interface
-interface IERC20 {
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-
-    function transfer(address recipient, uint256 amount) external returns (bool);
-
-    function balanceOf(address account) external view returns (uint256);
-}
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 /**
- * @title SKL Staking Contract
- * @dev This contract allows SKL holders to stake their tokens and earn ASET rewards at an APR of 30%.
+ * @title SKL to ASET Staking Contract
+ * @dev Enables SKL holders to stake tokens and earn ASET rewards at a fixed APR.
  */
-contract SKLtoASET {
-    // Address of the SKL token contract
+contract SKLtoASET is ReentrancyGuard, Pausable, Initializable {
+    // Immutable token addresses to save gas
     IERC20 public sklToken;
-
-    // Address of the ASET token contract
     IERC20 public asetToken;
 
     // APR (Annual Percentage Rate) for staking (30% => 30 * 10^16)
@@ -39,23 +29,34 @@ contract SKLtoASET {
     }
 
     // Mapping from user address to their staking information
-    mapping(address => StakeInfo) public stakes;
+    mapping(address => StakeInfo[]) public stakes;
 
     // Owner of the contract
     address public owner;
 
     /**
-     * @dev Constructor initializes the SKL and ASET token contract addresses.
-     * @param _sklToken Address of the SKL token contract
-     * @param _asetToken Address of the ASET token contract
+     * @dev Events for transparency.
      */
-    constructor(address _sklToken, address _asetToken) {
+    event Staked(address indexed user, uint256 amount);
+    event RewardClaimed(address indexed user, uint256 reward);
+    event Withdrawn(address indexed user, uint256 amount, uint256 reward);
+    event EmergencyWithdrawn(address indexed user, uint256 amount);
+    event AsetTokenUpdated(address indexed oldAddress, address indexed newAddress);
+    event ContractInitialized(address sklToken, address asetToken);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    /**
+     * @dev Constructor to initialize the contract.
+     */
+    function initialize(address _sklToken, address _asetToken) external initializer {
         require(_sklToken != address(0), "Invalid SKL token address");
         require(_asetToken != address(0), "Invalid ASET token address");
 
         sklToken = IERC20(_sklToken);
         asetToken = IERC20(_asetToken);
         owner = msg.sender;
+
+        emit ContractInitialized(_sklToken, _asetToken);
     }
 
     /**
@@ -67,32 +68,39 @@ contract SKLtoASET {
     }
 
     /**
+     * @dev Transfer ownership of the contract to a new address.
+     * @param newOwner Address of the new owner.
+     */
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "New owner is the zero address");
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+    }
+
+    /**
      * @dev Stake SKL tokens into the contract.
      * @param amount The amount of SKL tokens to stake.
      */
-    function stake(uint256 amount) external {
+    function stake(uint256 amount) external whenNotPaused {
         require(amount > 0, "Stake amount must be greater than zero");
         require(
             sklToken.transferFrom(msg.sender, address(this), amount),
             "SKL transfer failed"
         );
 
-        StakeInfo storage userStake = stakes[msg.sender];
+        stakes[msg.sender].push(StakeInfo({
+            amount: amount,
+            startTime: block.timestamp,
+            active: true
+        }));
 
-        require(!userStake.active, "Already staked");
-
-        userStake.amount = amount;
-        userStake.startTime = block.timestamp;
-        userStake.active = true;
+        emit Staked(msg.sender, amount);
     }
 
     /**
      * @dev Check the staking status of the caller.
-     * @return amount Staked amount.
-     * @return startTime Staking start timestamp.
-     * @return active Whether the stake is active.
      */
-    function getStakeInfo()
+    function getStakeInfo(uint256 index)
         external
         view
         returns (
@@ -101,16 +109,17 @@ contract SKLtoASET {
             bool active
         )
     {
-        StakeInfo storage userStake = stakes[msg.sender];
+        StakeInfo storage userStake = stakes[msg.sender][index];
         return (userStake.amount, userStake.startTime, userStake.active);
     }
 
     /**
-     * @dev Calculate the reward accrued for the caller.
+     * @dev Calculate the reward accrued for a specific stake index.
+     * @param index The index of the stake.
      * @return reward Amount of ASET tokens earned as rewards.
      */
-    function calculateReward() external view returns (uint256 reward) {
-        StakeInfo storage userStake = stakes[msg.sender];
+    function calculateReward(uint256 index) external view returns (uint256 reward) {
+        StakeInfo storage userStake = stakes[msg.sender][index];
         require(userStake.active, "No active stake");
 
         uint256 stakingDuration = block.timestamp - userStake.startTime;
@@ -118,39 +127,50 @@ contract SKLtoASET {
             stakingDuration = STAKING_PERIOD; // Cap rewards at the staking period
         }
 
-        reward = (userStake.amount * APR * stakingDuration) / (365 days * 100 * 10**16);
+        unchecked {
+            reward = (userStake.amount * APR * stakingDuration) / (365 days * 100 * 10**16);
+        }
     }
 
     /**
      * @dev Withdraw staked SKL tokens and claim rewards.
+     * @param index The index of the stake to withdraw.
      */
-    function withdraw() external {
-        StakeInfo storage userStake = stakes[msg.sender];
+    function withdraw(uint256 index) external nonReentrant whenNotPaused {
+        StakeInfo storage userStake = stakes[msg.sender][index];
         require(userStake.active, "No active stake");
         require(
             block.timestamp >= userStake.startTime + STAKING_PERIOD,
             "Staking period not yet complete"
         );
 
-        uint256 reward = (userStake.amount * APR * STAKING_PERIOD) / (365 days * 100 * 10**16);
+        uint256 reward;
+        unchecked {
+            reward = (userStake.amount * APR * STAKING_PERIOD) / (365 days * 100 * 10**16);
+        }
 
         require(
             asetToken.transfer(msg.sender, reward),
-            "ASET transfer failed"
+            "ASET reward transfer failed"
         );
         require(
             sklToken.transfer(msg.sender, userStake.amount),
-            "SKL transfer failed"
+            "SKL stake transfer failed"
         );
 
-        delete stakes[msg.sender];
+        userStake.active = false;
+        removeInactiveStakes(msg.sender);
+
+        emit Withdrawn(msg.sender, userStake.amount, reward);
     }
 
     /**
      * @dev Emergency function to withdraw staked SKL tokens without rewards (penalty).
+     * Restricted to paused state.
+     * @param index The index of the stake to withdraw.
      */
-    function emergencyWithdraw() external {
-        StakeInfo storage userStake = stakes[msg.sender];
+    function emergencyWithdraw(uint256 index) external nonReentrant whenPaused {
+        StakeInfo storage userStake = stakes[msg.sender][index];
         require(userStake.active, "No active stake");
 
         require(
@@ -158,7 +178,10 @@ contract SKLtoASET {
             "SKL transfer failed"
         );
 
-        delete stakes[msg.sender];
+        userStake.active = false;
+        removeInactiveStakes(msg.sender);
+
+        emit EmergencyWithdrawn(msg.sender, userStake.amount);
     }
 
     /**
@@ -167,6 +190,40 @@ contract SKLtoASET {
      */
     function updateAsetToken(address _newAsetToken) external onlyOwner {
         require(_newAsetToken != address(0), "Invalid ASET token address");
+
+        address oldAddress = address(asetToken);
         asetToken = IERC20(_newAsetToken);
+
+        emit AsetTokenUpdated(oldAddress, _newAsetToken);
+    }
+
+    /**
+     * @dev Remove inactive stakes from the array.
+     * @param user The address of the user.
+     */
+    function removeInactiveStakes(address user) internal {
+        StakeInfo[] storage userStakes = stakes[user];
+        for (uint256 i = 0; i < userStakes.length; ) {
+            if (!userStakes[i].active) {
+                userStakes[i] = userStakes[userStakes.length - 1];
+                userStakes.pop();
+            } else {
+                i++;
+            }
+        }
+    }
+
+    /**
+     * @dev Pause the contract in case of emergencies.
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @dev Unpause the contract.
+     */
+    function unpause() external onlyOwner {
+        _unpause();
     }
 }
