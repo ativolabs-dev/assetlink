@@ -1,0 +1,19 @@
+# Node.js dependencies
+node_modules/
+
+# Hardhat cache and artifacts
+artifacts/
+cache/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE/editor settings
+.vscode/
+*.log
