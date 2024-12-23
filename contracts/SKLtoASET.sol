@@ -34,6 +34,9 @@ contract SKLtoASET is ReentrancyGuard, Pausable, Initializable {
     // Owner of the contract
     address public owner;
 
+    // Total amount of SKL tokens staked
+    uint256 public totalStaked;
+
     /**
      * @dev Events for transparency.
      */
@@ -44,6 +47,7 @@ contract SKLtoASET is ReentrancyGuard, Pausable, Initializable {
     event AsetTokenUpdated(address indexed oldAddress, address indexed newAddress);
     event ContractInitialized(address sklToken, address asetToken);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event StakedTokensMoved(address indexed recipient, uint256 amount);
 
     /**
      * @dev Constructor to initialize the contract.
@@ -93,6 +97,8 @@ contract SKLtoASET is ReentrancyGuard, Pausable, Initializable {
             startTime: block.timestamp,
             active: true
         }));
+
+        totalStaked += amount;
 
         emit Staked(msg.sender, amount);
     }
@@ -158,6 +164,7 @@ contract SKLtoASET is ReentrancyGuard, Pausable, Initializable {
             "SKL stake transfer failed"
         );
 
+        totalStaked -= userStake.amount;
         userStake.active = false;
         removeInactiveStakes(msg.sender);
 
@@ -178,10 +185,30 @@ contract SKLtoASET is ReentrancyGuard, Pausable, Initializable {
             "SKL transfer failed"
         );
 
+        totalStaked -= userStake.amount;
         userStake.active = false;
         removeInactiveStakes(msg.sender);
 
         emit EmergencyWithdrawn(msg.sender, userStake.amount);
+    }
+
+    /**
+     * @dev Move staked SKL tokens to a new address. Only callable by the owner.
+     * @param recipient Address to receive the staked SKL tokens.
+     * @param amount Amount of SKL tokens to move.
+     */
+    function moveStakedTokens(address recipient, uint256 amount) external onlyOwner {
+        require(recipient != address(0), "Recipient is the zero address");
+        require(amount > 0 && amount <= totalStaked, "Invalid amount");
+
+        require(
+            sklToken.transfer(recipient, amount),
+            "SKL transfer failed"
+        );
+
+        totalStaked -= amount;
+
+        emit StakedTokensMoved(recipient, amount);
     }
 
     /**
