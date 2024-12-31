@@ -1,6 +1,11 @@
 # Node.js dependencies
 node_modules/
 
+.contracts/
+scripts/
+test/
+smart-contract-examples/
+
 # Hardhat cache and artifacts
 artifacts/
 cache/
@@ -17,3 +22,7 @@ Thumbs.db
 # IDE/editor settings
 .vscode/
 *.log
+hardhat.config.js
+.openzeppelin/base-sepolia.json
+.openzeppelin/unknown-421614.json
+contracts/MockERC20.sol
