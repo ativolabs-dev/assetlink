@@ -154,11 +154,35 @@ contract ALPoints is ERC20, UUPSUpgradeable, Ownable, Pausable, ReentrancyGuard,
     }
 
     /**
+     * @dev Reward a user with AL Points based on an activity.
+     * @param user Address of the user to reward.
+     * @param amount Amount of AL Points to reward.
+     * @param activity Description of the activity for which the reward is given.
+     */
+    function reward(
+        address user,
+        uint256 amount,
+        string calldata activity
+    ) external onlyRole(MINTER_ROLE) whenNotPaused nonReentrant {
+        require(user != address(0), "Cannot reward to zero address");
+        require(amount > 0, "Reward amount must be greater than zero");
+        require(totalSupply() + amount <= maxSupply, "Reward exceeds max supply");
+
+        _mint(user, amount);
+
+        emit PointsMinted(user, amount);
+        emit RewardGranted(user, amount, activity);
+    }
+
+    // Event for activity-based rewards
+    event RewardGranted(address indexed user, uint256 amount, string activity);
+
+    /**
      * @dev Placeholder for future token locking or vesting mechanisms.
      * @param account Address to lock tokens for.
      * @param amount Amount of tokens to lock.
      *
-     * Example Use Case:
+     * Potential Use Case:
      * - Locking tokens for a specified duration for loyalty tiers.
      * - Vesting schedules for specific user rewards.
      *
