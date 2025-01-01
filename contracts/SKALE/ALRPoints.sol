@@ -1,18 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 /**
  * @title AL Reward Points Token Contract (UUPS Upgradable)
  * @dev A gas-optimized, secure, and upgradable ERC-20 token for loyalty points, allowing minting, burning, and pausing functionality.
  */
-contract ALRPoints is ERC20, UUPSUpgradeable, Ownable, Pausable, ReentrancyGuard, AccessControl {
+contract ALRPoints is
+    ERC20Upgradeable,
+    ERC20BurnableUpgradeable,
+    ERC20PausableUpgradeable,
+    OwnableUpgradeable,
+    UUPSUpgradeable,
+    ReentrancyGuardUpgradeable,
+    AccessControlUpgradeable
+{
     // Role for minting authority
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
@@ -31,6 +40,9 @@ contract ALRPoints is ERC20, UUPSUpgradeable, Ownable, Pausable, ReentrancyGuard
     // Aggregate event for batch operations
     event BatchOperationSummary(uint256 totalMinted, uint256 totalBurned);
 
+    // Event for activity-based rewards
+    event RewardGranted(address indexed user, uint256 amount, string activity);
+
     /**
      * @dev Initializer to replace constructor for upgradable contracts.
      * @param _name Token name.
@@ -47,13 +59,15 @@ contract ALRPoints is ERC20, UUPSUpgradeable, Ownable, Pausable, ReentrancyGuard
 
         // Initialize ERC20
         __ERC20_init(_name, _symbol);
+        __ERC20Burnable_init();
+        __ERC20Pausable_init();
+        __Ownable_init();
+        __ReentrancyGuard_init();
+        __AccessControl_init();
 
         // Grant owner the default admin role and minter role
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(MINTER_ROLE, msg.sender);
-
-        // Set owner
-        _transferOwnership(msg.sender);
     }
 
     /**
@@ -78,9 +92,9 @@ contract ALRPoints is ERC20, UUPSUpgradeable, Ownable, Pausable, ReentrancyGuard
      * @dev Burn AL Reward Points from a specific address.
      * @param amount Amount of AL Reward Points to burn.
      */
-    function burn(uint256 amount) external whenNotPaused nonReentrant {
+    function burn(uint256 amount) public override whenNotPaused nonReentrant {
         require(amount > 0, "Burn amount must be greater than zero");
-        _burn(msg.sender, amount);
+        super.burn(amount); // Call the parent implementation
         emit PointsBurned(msg.sender, amount);
     }
 
@@ -149,7 +163,7 @@ contract ALRPoints is ERC20, UUPSUpgradeable, Ownable, Pausable, ReentrancyGuard
         address sender,
         address recipient,
         uint256 amount
-    ) internal override whenNotPaused {
+    ) internal override(ERC20Upgradeable, ERC20PausableUpgradeable) whenNotPaused {
         super._beforeTokenTransfer(sender, recipient, amount);
     }
 
@@ -174,22 +188,10 @@ contract ALRPoints is ERC20, UUPSUpgradeable, Ownable, Pausable, ReentrancyGuard
         emit RewardGranted(user, amount, activity);
     }
 
-    // Event for activity-based rewards
-    event RewardGranted(address indexed user, uint256 amount, string activity);
-
     /**
-     * @dev Placeholder for future token locking or vesting mechanisms.
-     * @param account Address to lock tokens for.
-     * @param amount Amount of tokens to lock.
-     *
-     * Potential Use Case:
-     * - Locking tokens for a specified duration for loyalty tiers.
-     * - Vesting schedules for specific user rewards.
-     *
-     * Potential Logic:
-     * - Store lock durations and amounts in a mapping.
-     * - Prevent transfers until lock duration expires.
-     */
+    * @dev Placeholder for future token locking or vesting mechanisms.
+    * State mutability is not restricted to 'view' because this function is intended to modify state in the future.
+    */
     function lockTokens(address account, uint256 amount) external onlyOwner {
         require(account != address(0), "Cannot lock tokens for zero address");
         require(amount > 0, "Lock amount must be greater than zero");

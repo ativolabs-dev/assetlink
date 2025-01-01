@@ -17,7 +17,8 @@ module.exports = {
     ],
   },
   paths: {
-    sources: "./.contracts", // Update if needed
+    sources: "./.contracts", // 
+    sources: "./contracts", // 
   },
   networks: {
     baseSepolia: {
@@ -28,7 +29,7 @@ module.exports = {
       url: process.env.ARB_SEPOLIA_RPC,
       accounts: [process.env.PRIVATE_KEY],
     },
-    skale: {
+    skaleTestnet: {
       url: process.env.SKALE_RPC_URL, // Skale testnet RPC URL
       accounts: [process.env.PRIVATE_KEY],
       chainId: parseInt(process.env.SKALE_CHAIN_ID, 10), // Chain ID for Skale
