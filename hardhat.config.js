@@ -17,25 +17,26 @@ module.exports = {
     ],
   },
   paths: {
-    // If your .sol files are in a folder named .contracts/
-    sources: "./.contracts",
+    sources: "./.contracts", // Update if needed
   },
   networks: {
     baseSepolia: {
       url: process.env.BASE_SEPOLIA_RPC,
       accounts: [process.env.PRIVATE_KEY],
-
-      // If you get "replacement transaction underpriced", consider setting:
-      // gasPrice: 1500000000, // 1.5 Gwei
     },
     arbSepolia: {
       url: process.env.ARB_SEPOLIA_RPC,
       accounts: [process.env.PRIVATE_KEY],
-      // Optional gas configuration
-      // gasPrice: 1500000000, // 1.5 Gwei
+    },
+    skale: {
+      url: process.env.SKALE_RPC_URL, // Skale testnet RPC URL
+      accounts: [process.env.PRIVATE_KEY],
+      chainId: parseInt(process.env.SKALE_CHAIN_ID, 10), // Chain ID for Skale
     },
   },
   etherscan: {
-    apiKey: process.env.BASESCAN_API_KEY,
+    apiKeyETH: process.env.ETHERSCAN_API_KEY, 
+    apiKeyBASE: process.env.BASESCAN_API_KEY, 
+    apiKeyARB: process.env.ARBISCAN_API_KEY, 
   },
 };
