@@ -10,10 +10,10 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 /**
- * @title AL Reward Points Token Contract (UUPS Upgradable)
+ * @title AL Reward Token Token Contract (UUPS Upgradable)
  * @dev A gas-optimized, secure, and upgradable ERC-20 token for loyalty points, allowing minting, burning, and pausing functionality.
  */
-contract ALRPoints is
+contract ALRToken is
     ERC20Upgradeable,
     ERC20BurnableUpgradeable,
     ERC20PausableUpgradeable,
@@ -25,16 +25,16 @@ contract ALRPoints is
     // Role for minting authority
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
-    // Maximum supply of AL Reward Points
+    // Maximum supply of AL Reward Token
     uint256 public maxSupply;
 
     // Maximum array length for batch operations
     uint256 public constant MAX_BATCH_LENGTH = 100;
 
-    // Event for minting AL Reward Points
+    // Event for minting AL Reward Token
     event PointsMinted(address indexed user, uint256 amount);
 
-    // Event for burning AL Reward Points
+    // Event for burning AL Reward Token
     event PointsBurned(address indexed user, uint256 amount);
 
     // Aggregate event for batch operations
@@ -47,7 +47,7 @@ contract ALRPoints is
      * @dev Initializer to replace constructor for upgradable contracts.
      * @param _name Token name.
      * @param _symbol Token symbol.
-     * @param _maxSupply Maximum supply of AL Reward Points.
+     * @param _maxSupply Maximum supply of AL Reward Token.
      */
     function initialize(
         string memory _name,
@@ -77,9 +77,9 @@ contract ALRPoints is
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /**
-     * @dev Mint AL Reward Points to a specific address.
-     * @param to Address to receive the minted AL Reward Points.
-     * @param amount Amount of AL Reward Points to mint.
+     * @dev Mint AL Reward Token to a specific address.
+     * @param to Address to receive the minted AL Reward Token.
+     * @param amount Amount of AL Reward Token to mint.
      */
     function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) whenNotPaused nonReentrant {
         require(totalSupply() + amount <= maxSupply, "Minting exceeds max supply");
@@ -89,8 +89,8 @@ contract ALRPoints is
     }
 
     /**
-     * @dev Burn AL Reward Points from a specific address.
-     * @param amount Amount of AL Reward Points to burn.
+     * @dev Burn AL Reward Token from a specific address.
+     * @param amount Amount of AL Reward Token to burn.
      */
     function burn(uint256 amount) public override whenNotPaused nonReentrant {
         require(amount > 0, "Burn amount must be greater than zero");
@@ -99,8 +99,8 @@ contract ALRPoints is
     }
 
     /**
-     * @dev Mint AL Reward Points to multiple addresses in one transaction.
-     * @param recipients Array of addresses to receive the minted AL Reward Points.
+     * @dev Mint AL Reward Token to multiple addresses in one transaction.
+     * @param recipients Array of addresses to receive the minted AL Reward Token.
      * @param amounts Array of amounts to mint for each address.
      */
     function batchMint(address[] calldata recipients, uint256[] calldata amounts) external onlyRole(MINTER_ROLE) whenNotPaused nonReentrant {
@@ -121,7 +121,7 @@ contract ALRPoints is
     }
 
     /**
-     * @dev Burn AL Reward Points from multiple addresses in one transaction.
+     * @dev Burn AL Reward Token from multiple addresses in one transaction.
      * @param amounts Array of amounts to burn for each address.
      */
     function batchBurn(uint256[] calldata amounts) external whenNotPaused nonReentrant {
@@ -168,9 +168,9 @@ contract ALRPoints is
     }
 
     /**
-     * @dev Reward a user with AL Reward Points based on an activity.
+     * @dev Reward a user with AL Reward Token based on an activity.
      * @param user Address of the user to reward.
-     * @param amount Amount of AL Reward Points to reward.
+     * @param amount Amount of AL Reward Token to reward.
      * @param activity Description of the activity for which the reward is given.
      */
     function reward(
