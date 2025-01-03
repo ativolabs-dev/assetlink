@@ -9,10 +9,19 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20Pausable
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
-/**
- * @title AL Reward Token Token Contract (UUPS Upgradable)
- * @dev A gas-optimized, secure, and upgradable ERC-20 token for loyalty points, allowing minting, burning, and pausing functionality.
+/*
+ * @title AL Reward Token Contract (UUPS Upgradable)
+ * @dev A gas-optimized, secure, and upgradable ERC-20 token for loyalty points, allowing minting, burning, pausing, and claiming functionality.
+ *
+ * Company: AtivoLabs
+ * Contact: support@assetlink.io
+ * Website: https://www.assetlink.io
+ *
+ * This contract is designed to support AssetLink's loyalty programs and reward systems. It leverages SKALE's fast and gasless chain to provide
+ * transparency, security, and scalability for user engagement and tokenized incentives.
  */
+
+
 contract ALRToken is
     ERC20Upgradeable,
     ERC20BurnableUpgradeable,
@@ -31,6 +40,9 @@ contract ALRToken is
     // Maximum array length for batch operations
     uint256 public constant MAX_BATCH_LENGTH = 100;
 
+    // Mapping for claimable rewards
+    mapping(address => uint256) private _claimableRewards;
+
     // Event for minting AL Reward Token
     event PointsMinted(address indexed user, uint256 amount);
 
@@ -42,6 +54,9 @@ contract ALRToken is
 
     // Event for activity-based rewards
     event RewardGranted(address indexed user, uint256 amount, string activity);
+
+    // Event for claiming rewards
+    event RewardClaimed(address indexed user, uint256 amount);
 
     /**
      * @dev Initializer to replace constructor for upgradable contracts.
@@ -121,26 +136,51 @@ contract ALRToken is
     }
 
     /**
-     * @dev Burn AL Reward Token from multiple addresses in one transaction.
-     * @param amounts Array of amounts to burn for each address.
+     * @dev Reward a user with AL Reward Token based on an activity.
+     * @param user Address of the user to reward.
+     * @param amount Amount of AL Reward Token to reward.
+     * @param activity Description of the activity for which the reward is given.
      */
-    function batchBurn(uint256[] calldata amounts) external whenNotPaused nonReentrant {
-        require(amounts.length <= MAX_BATCH_LENGTH, "Batch length exceeds limit");
+    function reward(
+        address user,
+        uint256 amount,
+        string calldata activity
+    ) external onlyRole(MINTER_ROLE) whenNotPaused nonReentrant {
+        require(user != address(0), "Cannot reward to zero address");
+        require(amount > 0, "Reward amount must be greater than zero");
+        require(totalSupply() + amount <= maxSupply, "Reward exceeds max supply");
 
-        uint256 totalBurned = 0;
-        for (uint256 i = 0; i < amounts.length; i++) {
-            require(amounts[i] > 0, "Burn amount must be greater than zero");
+        _claimableRewards[user] += amount;
 
-            _burn(msg.sender, amounts[i]);
-            emit PointsBurned(msg.sender, amounts[i]);
-            totalBurned += amounts[i];
-        }
-
-        emit BatchOperationSummary(0, totalBurned);
+        emit RewardGranted(user, amount, activity);
     }
 
     /**
-     * @dev Pause the contract to prevent minting and burning.
+    * @dev Claim rewards that have been granted to the sender.
+    */
+    function claim() external whenNotPaused nonReentrant {
+        uint256 amount = _claimableRewards[msg.sender];
+        require(amount > 0, "No rewards to claim");
+
+        _claimableRewards[msg.sender] = 0;
+
+        _mint(msg.sender, amount);
+
+        emit RewardClaimed(msg.sender, amount);
+        emit PointsMinted(msg.sender, amount); 
+    }
+
+    /**
+     * @dev Get claimable rewards for a specific address.
+     * @param account Address to query.
+     * @return The amount of claimable rewards.
+     */
+    function getClaimableRewards(address account) external view returns (uint256) {
+        return _claimableRewards[account];
+    }
+
+    /**
+     * @dev Pause the contract to prevent minting, burning, and claiming.
      */
     function pause() external onlyOwner {
         _pause();
@@ -165,36 +205,5 @@ contract ALRToken is
         uint256 amount
     ) internal override(ERC20Upgradeable, ERC20PausableUpgradeable) whenNotPaused {
         super._beforeTokenTransfer(sender, recipient, amount);
-    }
-
-    /**
-     * @dev Reward a user with AL Reward Token based on an activity.
-     * @param user Address of the user to reward.
-     * @param amount Amount of AL Reward Token to reward.
-     * @param activity Description of the activity for which the reward is given.
-     */
-    function reward(
-        address user,
-        uint256 amount,
-        string calldata activity
-    ) external onlyRole(MINTER_ROLE) whenNotPaused nonReentrant {
-        require(user != address(0), "Cannot reward to zero address");
-        require(amount > 0, "Reward amount must be greater than zero");
-        require(totalSupply() + amount <= maxSupply, "Reward exceeds max supply");
-
-        _mint(user, amount);
-
-        emit PointsMinted(user, amount);
-        emit RewardGranted(user, amount, activity);
-    }
-
-    /**
-    * @dev Placeholder for future token locking or vesting mechanisms.
-    * State mutability is not restricted to 'view' because this function is intended to modify state in the future.
-    */
-    function lockTokens(address account, uint256 amount) external onlyOwner {
-        require(account != address(0), "Cannot lock tokens for zero address");
-        require(amount > 0, "Lock amount must be greater than zero");
-        // Future implementation for locking tokens.
     }
 }

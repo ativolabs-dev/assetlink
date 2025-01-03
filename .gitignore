@@ -25,4 +25,3 @@ Thumbs.db
 hardhat.config.js
 .openzeppelin
 contracts/MockERC20.sol
-dApps/ALRPdApp.js
