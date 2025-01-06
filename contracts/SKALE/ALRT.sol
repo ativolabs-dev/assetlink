@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -11,7 +10,7 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 
 /*
  * @title AL Reward Token Contract (UUPS Upgradable)
- * @dev A gas-optimized, secure, and upgradable ERC-20 token for loyalty points, allowing minting, burning, pausing, and claiming functionality.
+ * @dev A gas-optimized, secure, and upgradable ERC-20 token part of the AssetLink ecocystem, allowing minting, burning, pausing, and claiming functionality.
  *
  * Company: AtivoLabs
  * Contact: support@assetlink.io
@@ -20,19 +19,18 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
  * This contract is designed to support AssetLink's loyalty programs and reward systems. It leverages SKALE's fast and gasless chain to provide
  * transparency, security, and scalability for user engagement and tokenized incentives.
  */
-
-
+ 
 contract ALRToken is
     ERC20Upgradeable,
     ERC20BurnableUpgradeable,
     ERC20PausableUpgradeable,
-    OwnableUpgradeable,
     UUPSUpgradeable,
     ReentrancyGuardUpgradeable,
     AccessControlUpgradeable
 {
     // Role for minting authority
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     // Maximum supply of AL Reward Token
     uint256 public maxSupply;
@@ -76,20 +74,23 @@ contract ALRToken is
         __ERC20_init(_name, _symbol);
         __ERC20Burnable_init();
         __ERC20Pausable_init();
-        __Ownable_init();
         __ReentrancyGuard_init();
         __AccessControl_init();
 
-        // Grant owner the default admin role and minter role
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        // Grant admin role and minter role to deployer
+        _setupRole(ADMIN_ROLE, msg.sender);
         _setupRole(MINTER_ROLE, msg.sender);
+
+        // Set admin role as the default admin role
+        _setRoleAdmin(MINTER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
     }
 
     /**
-     * @dev Authorize contract upgrades. Restricted to the owner.
+     * @dev Authorize contract upgrades. Restricted to the ADMIN_ROLE.
      * @param newImplementation Address of the new implementation contract.
      */
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(ADMIN_ROLE) {}
 
     /**
      * @dev Mint AL Reward Token to a specific address.
@@ -180,14 +181,14 @@ contract ALRToken is
     /**
      * @dev Pause the contract to prevent minting, burning, and claiming.
      */
-    function pause() external onlyOwner {
+    function pause() external onlyRole(ADMIN_ROLE) {
         _pause();
     }
 
     /**
      * @dev Unpause the contract to resume operations.
      */
-    function unpause() external onlyOwner {
+    function unpause() external onlyRole(ADMIN_ROLE) {
         _unpause();
     }
 
