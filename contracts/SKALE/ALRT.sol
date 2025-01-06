@@ -98,7 +98,6 @@ contract ALRToken is
      */
     function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) whenNotPaused nonReentrant {
         require(totalSupply() + amount <= maxSupply, "Minting exceeds max supply");
-        require(to != address(0), "Cannot mint to zero address");
         _mint(to, amount);
         emit PointsMinted(to, amount);
     }
@@ -124,7 +123,6 @@ contract ALRToken is
 
         uint256 totalMinted = 0;
         for (uint256 i = 0; i < recipients.length; i++) {
-            require(recipients[i] != address(0), "Cannot mint to zero address");
             require(totalSupply() + amounts[i] <= maxSupply, "Minting exceeds max supply");
 
             _mint(recipients[i], amounts[i]);
